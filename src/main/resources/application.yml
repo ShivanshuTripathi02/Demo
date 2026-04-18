@@ -1,0 +1,8 @@
+anthropic:
+  api:
+    key: ${ANTHROPIC_API_KEY}
+
+spring:
+  web:
+    cors:
+      allowed-origins: "*"
