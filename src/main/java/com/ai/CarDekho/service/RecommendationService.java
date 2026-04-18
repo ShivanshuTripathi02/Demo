@@ -17,20 +17,12 @@ public class RecommendationService {
     }
 
     public List<Car> recommend(PreferenceRequest req) {
-
         return repository.getAllCars().stream()
-
-                // Budget filter
                 .filter(car -> car.getPriceInLakhs() <= req.getBudget())
-
-                // Fuel filter
                 .filter(car -> req.getFuelType().equalsIgnoreCase("any") ||
                         car.getFuelType().equalsIgnoreCase(req.getFuelType()))
-
-                // Basic ranking
                 .sorted((a, b) -> score(b, req) - score(a, req))
-
-                .limit(3)
+                .limit(5) // send 5 to AI, not 3
                 .toList();
     }
 
@@ -40,16 +32,29 @@ public class RecommendationService {
         switch (req.getPriority().toLowerCase()) {
             case "mileage" -> {
                 if (car.getMileageKmpl() != null)
-                    score += car.getMileageKmpl();
+                    score += (int)(car.getMileageKmpl() * 2); // weight it more
             }
-            case "safety" -> score += car.getSafetyRatingStars() * 10;
+            case "safety" -> score += car.getSafetyRatingStars() * 15; // was 10
             case "features" -> score += car.getFeatures().size() * 5;
+            case "comfort" -> score += car.getSeatingCapacity() * 5
+                    + (car.getBootSpaceLiters() / 50);
         }
 
-        // Bonus for matching use-case
+        // Bonus: bestFor match
         if (car.getBestFor() != null &&
-                car.getBestFor().toString().toLowerCase().contains(req.getUsage().toLowerCase())) {
+                car.getBestFor().toString().toLowerCase()
+                        .contains(req.getUsage().toLowerCase())) {
             score += 20;
+        }
+
+        // Bonus: closer to budget = better value
+        double budgetUtilization = car.getPriceInLakhs() / req.getBudget();
+        if (budgetUtilization >= 0.75) score += 10; // uses budget well
+
+        // Bonus: EV range if electric
+        if (car.getFuelType().equalsIgnoreCase("electric")
+                && car.getRangeKm() != null) {
+            score += car.getRangeKm() / 10;
         }
 
         return score;
